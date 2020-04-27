@@ -1,0 +1,44 @@
+public void From_Image_to_File(string file)
+        {
+            //initialisation
+            byte[] tab = new byte[this.taille];
+            for (int i = 0; i < this.taille; i++)
+            {
+                tab[i] = 0;
+            }
+
+            //type fichier
+            tab[0] = Convert.ToByte(this.type[0]);
+            tab[1] = Convert.ToByte(this.type[1]);
+
+            //nbBits
+            tab[28] = (byte)(this.nbBits);
+            tab[29] = (byte)(this.nbBits >> 8);
+            byte[] taille_ = Convertir_Int_To_Endian(this.taille);
+            byte[] adresse = Convertir_Int_To_Endian(this.offset);
+            byte[] taillePetitOffset = Convertir_Int_To_Endian(this.offset - 14);
+            byte[] largeurIm = Convertir_Int_To_Endian(this.l);
+            byte[] hauteurIm = Convertir_Int_To_Endian(this.h);
+            for (int i = 0; i < 4; i++)
+            {
+                tab[2 + i] = taille_[i];
+                tab[10 + i] = adresse[i];
+                tab[14 + i] = taillePetitOffset[i];
+                tab[18 + i] = largeurIm[i];
+                tab[22 + i] = hauteurIm[i];
+            }
+
+            int pos = this.offset;
+            for (int i = 0; i < this.l; i++)
+            {
+                for (int j = 0; j < this.h; j++)
+                {
+                    tab[pos] = (byte)(this.pixeltab[i, j].Bleu);
+                    tab[pos + 1] = (byte)(this.pixeltab[i, j].Vert);
+                    tab[pos + 2] = (byte)(this.pixeltab[i, j].Rouge);
+                    pos += 3;
+                }
+            }
+            File.WriteAllBytes(file, tab);
+
+        }
