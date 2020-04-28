@@ -1,0 +1,54 @@
+public void Convolution(string choix)
+        {
+            //int a, b, c, d, e,f,g,h,i ;
+            int[,] mat = new int[3, 3];
+            switch (choix)
+            {
+                case "detection_contours":
+                    /*a = 0; b = 1;c = 0;
+                    d = -4; e = 1; f = 0;
+                    g = 0; h = 1; i = 0;*/
+                    mat = new int[,] { { 0,1,0},{ 1,-4,1},{ 0,1,0} };
+                    break;
+                default:
+                    mat = new int[,] { { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 } };
+                    break;
+            }
+            MyPixel[,] copietab = new MyPixel[pixeltab.GetLength(0), pixeltab.GetLength(1)];
+            MyPixel noir = new MyPixel(0, 0, 0);
+            for(int i = 0; i < copietab.GetLength(0); i++)
+            {
+                for(int j = 0; j < copietab.GetLength(1); j++)
+                {
+                    copietab[i, j] = noir;
+                }
+            }
+            for (int j = 1; j < this.pixeltab.GetLength(0)-1; j++)
+            {
+                for (int k = 1; k < this.pixeltab.GetLength(1) - 1; k++)
+                {  
+                    for(int l = -1; l <= 1; l++)
+                    {
+                        for(int m = -1; m <= 1; m++)
+                        {
+
+                            //int temp = ;
+                            copietab[j, k].Bleu += pixeltab[j + l, k + m].Bleu * mat[l + 1, m + 1];
+                            copietab[j, k].Rouge += pixeltab[j + l, k + m].Rouge * mat[l+1, m+1];
+                            copietab[j, k].Vert += pixeltab[j + l, k + m].Vert * mat[1 + l, 1 + m];
+
+                            if (copietab[j, k].Bleu > 255) copietab[j, k].Bleu = 255;
+                            if (copietab[j, k].Bleu <0) copietab[j, k].Bleu = 0;
+                            if (copietab[j, k].Rouge > 255) copietab[j, k].Rouge = 255;
+                            if (copietab[j, k].Rouge < 0) copietab[j, k].Rouge = 0;
+                            if (copietab[j, k].Vert > 255) copietab[j, k].Vert = 255;
+                            if (copietab[j, k].Vert < 0) copietab[j, k].Vert = 0;
+
+                        }
+                    }
+                }
+            }
+
+            pixeltab = copietab;
+
+        }
