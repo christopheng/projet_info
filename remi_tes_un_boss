@@ -1,0 +1,545 @@
+using System;
+using System.IO;
+//http://www.mysti2d.net/polynesie2/ETT/C044/31/Steganographie/lib/pdf/formatbmp.pdf
+//https://www.commentcamarche.net/contents/1200-bmp-format-bmp
+namespace Probleme_info
+{
+    class MyImage
+    {
+        string type; //type de l'image
+        int taille; //taille du fichier
+        int offset; //taille offset
+        int nbBits; //nombre de bits
+        int l; //longueur de l'image
+        int h; //largeur de l'image
+        MyPixel[,] pixeltab;
+        //int[,] a; //transparence
+
+        public MyImage(string myfile)
+        {
+            byte[] pixels = File.ReadAllBytes(myfile);
+            this.type = Convert.ToString(Convert.ToChar(pixels[0])) + Convert.ToString(Convert.ToChar(pixels[1]));
+            //byte[] tailles = new byte[] { pixels[2], pixels[3], pixels[4], pixels[5] } ;
+            this.taille = Convertir_Endian_to_Int(pixels, 2);
+            this.offset = Convertir_Endian_to_Int(pixels, 10);
+            this.nbBits = (pixels[29] << 8 | pixels[28]);
+            this.l = Convertir_Endian_to_Int(pixels, 18);
+            this.h = Convertir_Endian_to_Int(pixels, 22);
+            this.pixeltab = new MyPixel[l, h];
+
+            int pos = 0;
+            for (int j = 0; j < this.pixeltab.GetLength(1); j++)
+            {
+                for (int i = 0; i < this.pixeltab.GetLength(0); i++)
+                {
+                    this.pixeltab[i, j] = new MyPixel(pixels[this.offset + 3 * pos + 2], pixels[this.offset + 3 * pos + 1], pixels[this.offset + 3 * pos]);
+                    pos++;
+                }
+            }
+        }
+        public MyImage(int Hauteur, int Largeur)
+        {
+            this.type = "BM";
+            this.offset = 54;
+            this.nbBits = 24;
+            this.l = Largeur;
+            this.h = Hauteur;
+            MyPixel[,] pixels = new MyPixel[this.h, this.l];
+            for (int i = 0; i < this.h; i++)
+            {
+                for (int j = 0; j < this.l; j++)
+                {
+                    pixels[i, j] = new MyPixel(0, 0, 0);
+                }
+            }
+        }
+        public MyImage(int Hauteur, int Largeur, MyPixel[,] pixels)
+        {
+            this.type = "BM";
+            this.offset = 54;
+            this.nbBits = 24;
+            this.l = Largeur;
+            this.h = Hauteur;
+            this.pixeltab = pixels;
+            this.taille = this.l * this.h + this.offset;
+
+        }
+        public MyPixel[,] Pixeltab
+        {
+            get { return this.pixeltab; }
+
+            set { this.pixeltab = value; }
+        }
+
+        public int getLargeur
+        {
+            get { return this.l; }
+        }
+        public int getHauteur
+        {
+            get { return this.h; }
+        }
+
+        public int Convertir_Endian_to_Int(byte[] tab, int index)
+        {
+
+            return (tab[index + 3] << 24 | tab[index + 2] << 16 | tab[index + 1] << 8 | tab[index]);
+
+        }
+        public byte[] Convertir_Int_To_Endian(int val)
+        {
+
+            byte[] tab = new byte[] { (byte)(val), (byte)(val >> 8), (byte)(val >> 16), (byte)(val >> 24) };
+            return tab;
+        }
+
+        public void From_Image_to_File(string file)
+        {
+            //initialisation
+            byte[] tab = new byte[this.taille];
+            for (int i = 0; i < this.taille; i++)
+            {
+                tab[i] = 0;
+            }
+
+            //type fichier
+            tab[0] = Convert.ToByte(this.type[0]);
+            tab[1] = Convert.ToByte(this.type[1]);
+
+            tab[26] = 1;
+
+            //nbBits
+            tab[28] = (byte)(this.nbBits);
+            tab[29] = (byte)(this.nbBits >> 8);
+
+            byte[] taille_ = Convertir_Int_To_Endian(this.taille);
+            byte[] adresse = Convertir_Int_To_Endian(this.offset);
+            byte[] taillePetitOffset = Convertir_Int_To_Endian(this.offset - 14);
+            byte[] largeurIm = Convertir_Int_To_Endian(this.l);
+            byte[] hauteurIm = Convertir_Int_To_Endian(this.h);
+            byte[] tailleIm = Convertir_Int_To_Endian(this.l * this.h * 3);
+            for (int i = 0; i < 4; i++)
+            {
+                tab[2 + i] = taille_[i];
+                tab[10 + i] = adresse[i];
+                tab[14 + i] = taillePetitOffset[i];
+                tab[18 + i] = largeurIm[i];
+                tab[22 + i] = hauteurIm[i];
+                tab[34 + i] = tailleIm[i];
+            }
+
+            int pos = this.offset;
+            for (int j = 0; j < this.h; j++)
+            {
+                for (int i = 0; i < this.l; i++)
+                {
+                    tab[pos] = (byte)(this.pixeltab[i, j].Bleu);
+                    tab[pos + 1] = (byte)(this.pixeltab[i, j].Vert);
+                    tab[pos + 2] = (byte)(this.pixeltab[i, j].Rouge);
+                    pos += 3;
+                }
+            }
+            File.WriteAllBytes(file, tab);
+
+        }
+
+        public void RetrecirImage(string file)
+        {
+            int tTaille = this.offset + (this.l / 2) * (this.h / 2);
+            byte[] tab = new byte[tTaille];
+            for (int i = 0; i < tTaille; i++)
+            {
+                tab[i] = 0;
+            }
+
+            //type fichier
+            tab[0] = Convert.ToByte(this.type[0]);
+            tab[1] = Convert.ToByte(this.type[1]);
+
+            //nbBits
+            tab[28] = (byte)(this.nbBits);
+            tab[29] = (byte)(this.nbBits >> 8);
+            byte[] taille_ = Convertir_Int_To_Endian(tTaille);
+            byte[] adresse = Convertir_Int_To_Endian(this.offset);
+            byte[] taillePetitOffset = Convertir_Int_To_Endian(this.offset - 14);
+            byte[] largeurIm = Convertir_Int_To_Endian(this.l / 2);
+            byte[] hauteurIm = Convertir_Int_To_Endian(this.h / 2);
+            for (int i = 0; i < 4; i++)
+            {
+                tab[2 + i] = taille_[i];
+                tab[10 + i] = adresse[i];
+                tab[14 + i] = taillePetitOffset[i];
+                tab[18 + i] = largeurIm[i];
+                tab[22 + i] = hauteurIm[i];
+            }
+
+            int pos = this.offset;
+            for (int i = 0; i < this.l / 2; i += 3)
+            {
+                for (int j = 0; j < this.h / 2; j += 3)
+                {
+                    tab[pos] = (byte)(this.pixeltab[i, j].Bleu);
+                    tab[pos + 1] = (byte)(this.pixeltab[i, j].Vert);
+                    tab[pos + 2] = (byte)(this.pixeltab[i, j].Rouge);
+                    pos += 3;
+                }
+            }
+            File.WriteAllBytes(file, tab);
+        }
+
+        public void Inversion()
+        {
+            for (int i = 0; i < this.pixeltab.GetLength(0) - 1; i++)
+            {
+                for (int j = 0; j < this.pixeltab.GetLength(1) - 1; j++)
+                {
+                    this.pixeltab[i, j].Rouge = 255 - this.pixeltab[i, j].Rouge;
+                    this.pixeltab[i, j].Vert = 255 - this.pixeltab[i, j].Vert;
+                    this.pixeltab[i, j].Bleu = 255 - this.pixeltab[i, j].Bleu;
+
+                }
+            }
+        }
+
+        public void NuancesGris()
+        {
+            for (int i = 0; i < this.pixeltab.GetLength(0) - 1; i++)
+            {
+                for (int j = 0; j < this.pixeltab.GetLength(1) - 1; j++)
+                {
+                    byte nb = Convert.ToByte((this.pixeltab[i, j].Rouge + this.pixeltab[i, j].Vert + this.pixeltab[i, j].Bleu) / 3);
+                    this.pixeltab[i, j].Rouge = nb;
+                    this.pixeltab[i, j].Vert = nb;
+                    this.pixeltab[i, j].Bleu = nb;
+                }
+            }
+        }
+        public void NoirBlanc()
+        {
+            for (int i = 0; i < this.pixeltab.GetLength(0) - 1; i++)
+            {
+                for (int j = 0; j < this.pixeltab.GetLength(1) - 1; j++)
+                {
+                    if (this.pixeltab[i, j].Rouge < 150)
+                    {
+                        this.pixeltab[i, j].Rouge = 0;
+                        this.pixeltab[i, j].Vert = 0;
+                        this.pixeltab[i, j].Bleu = 0;
+                    }
+                    else
+                    {
+                        this.pixeltab[i, j].Rouge = 255;
+                        this.pixeltab[i, j].Vert = 255;
+                        this.pixeltab[i, j].Bleu = 255;
+                    }
+                }
+            }
+        }
+        public void Miroir()
+        {
+            MyPixel[,] copie = new MyPixel[this.pixeltab.GetLength(0), this.pixeltab.GetLength(1)];
+            for (int i = 0; i < this.pixeltab.GetLength(0); i++)
+            {
+                for (int j = 0; j < this.pixeltab.GetLength(1); j++)
+                {
+                    copie[i, j] = this.pixeltab[this.pixeltab.GetLength(0) - 1 - i, j];
+                }
+            }
+            this.pixeltab = copie;
+            /*
+            for (int i = 0; i < this.pixeltab.GetLength(0)-1; i++)
+            {
+                for (int j = 0; j < this.pixeltab.GetLength(1)-1; j++)
+                {
+                    this.pixeltab[i, j] = copie[i, this.pixeltab.GetLength(1) - j-1];
+                }
+            }*/
+
+        }
+
+        public void Convolution(string choix)
+        {
+            //int a, b, c, d, e,f,g,h,i ;
+            int[,] mat = new int[3, 3];
+            int coeff = 1;
+            switch (choix)
+            {
+                case "detection_contours":
+                    /*a = 0; b = 1;c = 0;
+                    d = -4; e = 1; f = 0;
+                    g = 0; h = 1; i = 0;*/
+                    mat = new int[,] { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };
+                    coeff = 1;
+                    break;
+                case "repoussage":
+                    mat = new int[,] { { -2, -1, 0 }, { -1, 1, 1 }, { 0, 1, 2 } };
+                    coeff = 1;
+                    break;
+                case "renforcement_bords":
+                    mat = new int[,] { { 0, 0, 0 }, { -1, 1, 0 }, { 0, 0, 0 } };
+                    coeff = 1;
+                    break;
+                case "flou":
+                    mat = new int[,] { { 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 } };
+                    coeff = 9;
+                    break;
+                default:
+                    mat = new int[,] { { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 } };
+                    coeff = 1;
+                    break;
+            }
+            MyPixel[,] copietab = new MyPixel[pixeltab.GetLength(0), pixeltab.GetLength(1)];
+            for (int i = 0; i < copietab.GetLength(0); i++)
+            {
+                for (int j = 0; j < copietab.GetLength(1); j++)
+                {
+                    copietab[i, j] = new MyPixel(0, 0, 0);
+                }
+            }
+            for (int j = 1; j < this.pixeltab.GetLength(0) - 1; j++)
+            {
+                for (int k = 1; k < this.pixeltab.GetLength(1) - 1; k++)
+                {
+                    for (int l = -1; l <= 1; l++)
+                    {
+                        for (int m = -1; m <= 1; m++)
+                        {
+
+                            //int temp = ;
+                            copietab[j, k].Bleu += pixeltab[j + l, k + m].Bleu * mat[l + 1, m + 1];
+                            copietab[j, k].Rouge += pixeltab[j + l, k + m].Rouge * mat[l + 1, m + 1];
+                            copietab[j, k].Vert += pixeltab[j + l, k + m].Vert * mat[1 + l, 1 + m];
+
+                        }
+
+                    }
+                    copietab[j, k].Bleu = copietab[j, k].Bleu / coeff;
+                    copietab[j, k].Rouge = copietab[j, k].Rouge / coeff;
+                    copietab[j, k].Vert = copietab[j, k].Vert / coeff;
+                    if (copietab[j, k].Bleu > 255) copietab[j, k].Bleu = 255;
+                    if (copietab[j, k].Bleu < 0) copietab[j, k].Bleu = 0;
+                    if (copietab[j, k].Rouge > 255) copietab[j, k].Rouge = 255;
+                    if (copietab[j, k].Rouge < 0) copietab[j, k].Rouge = 0;
+                    if (copietab[j, k].Vert > 255) copietab[j, k].Vert = 255;
+                    if (copietab[j, k].Vert < 0) copietab[j, k].Vert = 0;
+
+
+                }
+            }
+
+            pixeltab = copietab;
+
+        }
+
+        public void Rotation()
+        {
+            MyPixel[,] tabcopie = new MyPixel[this.h, this.l];
+            for (int i = 0; i < this.h; i++)
+            {
+                for (int j = 0; j < this.l; j++)
+                {
+                    tabcopie[i, j] = this.pixeltab[j, i];
+                }
+            }
+            this.h = tabcopie.GetLength(1);
+            this.l = tabcopie.GetLength(0);
+            this.pixeltab = tabcopie;
+
+        }
+
+        public int[] Histogramme(string couleur)
+        {
+            int[] histo = new int[256];
+            for (int i = 0; i < this.l; i++)
+            {
+                for (int j = 0; j < this.h; j++)
+                {
+                    switch (couleur)
+                    {
+                        case "bleu":
+                            histo[this.pixeltab[i, j].Bleu] += 1;
+                            break;
+                        case "rouge":
+                            histo[this.pixeltab[i, j].Rouge] += 1;
+                            break;
+                        case "vert":
+                            histo[this.pixeltab[i, j].Vert] += 1;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            return histo;
+        }
+
+        public void AfficherHisto(int[] histog,string couleur)
+        {
+            int max = histog[0];
+            for (int i = 1; i < histog.Length; i++)
+            {
+                if (histog[i] > max)
+                { 
+                    max = histog[i]; 
+                }
+            }
+
+            MyPixel[,] histotab = new MyPixel[max, 5 * 256];
+            
+            for (int i = 0; i < histotab.GetLength(0); i++)
+            {
+                for (int j = 0; j < histotab.GetLength(1); j++)
+                {
+                    histotab[i, j] = new MyPixel(255, 255, 255);
+                }
+            }
+            MyPixel couleurpixel = new MyPixel(0, 0, 0);
+            switch (couleur)
+            {
+                case "rouge":
+                    couleurpixel = new MyPixel(255, 0, 0);
+                    break;
+                case "vert":
+                    couleurpixel = new MyPixel(0, 255, 0);
+                    break;
+                case "bleu":
+                    couleurpixel = new MyPixel(0, 0, 255);
+                    break;
+                default:
+                    break;
+            }
+            for (int i = 0; i <= 255; i++)
+            {
+                int hauteur = histog[i];
+                for (int j = 0; j < hauteur; j++)
+                {
+                    
+                    histotab[j, 5 * i] = couleurpixel;
+                    histotab[j, 5 * i + 1] = couleurpixel;
+                    histotab[j, 5 * i + 2] = couleurpixel;
+                    histotab[j, 5 * i + 3] = couleurpixel;
+                    histotab[j, 5 * i + 4] = couleurpixel;
+
+                    /*
+                    histotab[5 * i,j] = couleurpixel;
+                    histotab[5 * i + 1,j] = couleurpixel;
+                    histotab[5 * i + 2,j] = couleurpixel;
+                    histotab[5 * i + 3,j] = couleurpixel;
+                    histotab[5 * i + 4,j] = couleurpixel;*/
+                }
+            }
+
+            this.pixeltab = histotab;
+        
+        }
+        
+        public static MyImage Fractale()//à corriger
+        {
+            double x1 = -2.1;
+            double x2 = 0.6;
+            double y1 = -1.2;
+            double y2 = 1.2;
+            int zoom = 100;
+            //double image_x = 270;
+            //double image_y = 240;
+            int iteration_max = 50;
+
+            //double zoom_x = image_x / (x2 - x1);
+            //double zoom_y = image_y / (y2 - y1);
+            double image_x = (x2 - x1) * zoom;
+            double image_y = (y2 - y1) * zoom;
+
+            MyPixel[,] fractale = new MyPixel[(int)image_x,(int)image_y];
+            for (int j = 0; j < (int)image_x; j++)
+            {
+                for (int i = 0; i < (int)image_y; i++)
+                {
+                    fractale[j,i] = new MyPixel(0, 0, 0);
+                }
+            }
+            for (int i = 0; i < image_x; i++)
+            {
+                for(int j = 0; j < image_y; j++)
+                {
+                    double c_r = i / zoom + x1;
+                    double c_i = j / zoom + y1;
+                    double z_r = 0;
+                    double z_i = 0;
+                    double x = 0;
+                    do
+                    {
+                        double tmp = z_r;
+                        z_r = z_r * z_r - z_i * z_i + c_r;
+                        z_i = 2 * z_i * tmp + c_i;
+                        x = x + 1;
+
+                    } while (z_r * z_r - z_i * z_i < 4 & x < iteration_max);
+                    if (i == iteration_max)
+                    {
+                        fractale[i, i] = new MyPixel(255,255,255);
+                    }
+                    
+                }
+            }
+
+            MyImage newFractale = new MyImage((int)image_y, (int)image_x, fractale);
+            return newFractale;
+        }
+
+        
+        public static MyImage CacherImage(MyImage imagecachee, MyImage imagevisible)//à corriger
+        {
+            MyImage newimage = new MyImage(imagevisible.getHauteur, imagevisible.getLargeur);
+            int cache = 255 >> 4;
+            int visible = 255 << 4;
+            for (int i = 0; i < imagevisible.getHauteur; i++)
+            {
+                for (int j = 0; j < imagevisible.getLargeur; j++)
+                {
+
+                    newimage.Pixeltab[i, j].Vert = (imagevisible.Pixeltab[i, j].Vert & visible) + ((imagecachee.Pixeltab[i, j].Vert >> 4) & cache);
+                    newimage.Pixeltab[i, j].Rouge = (imagevisible.Pixeltab[i, j].Rouge & visible) + ((imagecachee.Pixeltab[i, j].Rouge >> 4) & cache);
+                    newimage.Pixeltab[i, j].Bleu = (imagevisible.Pixeltab[i, j].Bleu & visible) + ((imagecachee.Pixeltab[i, j].Bleu >> 4) & cache);
+                }
+            }
+
+            return newimage;
+
+        }
+
+        public static MyImage RetrouverImage(MyImage newimage)//à corriger
+        {
+            MyImage imagecachee = new MyImage(newimage.getHauteur, newimage.getLargeur);
+
+            int cache = 255 >> 4;
+            for (int i = 0; i < newimage.getHauteur; i++)
+            {
+                for (int j = 0; j < newimage.getLargeur; j++)
+                {
+                    imagecachee.Pixeltab[i, j].Vert = (newimage.Pixeltab[i, j].Vert & cache) << 4;
+                    imagecachee.Pixeltab[i, j].Rouge = (newimage.Pixeltab[i, j].Rouge & cache) << 4;
+                    imagecachee.Pixeltab[i, j].Bleu = (newimage.Pixeltab[i, j].Bleu & cache) << 4;
+                }
+            }
+
+            return imagecachee;
+        }
+
+        public string toString()
+        {
+            string str = "";
+            str += "Type fichier : " + this.type;
+            str += "\n Taille offset : " + this.offset;
+            str += "\n Hauteur : " + this.h;
+            str += "\n Largeur : " + this.l;
+            str += "\n NbBits : " + this.nbBits;
+            str += "\n Taille fichier : " + this.taille;
+            return str;
+        }
+
+    }//fin classe
+
+
+}//fin namespace
+
