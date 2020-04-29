@@ -1,0 +1,81 @@
+        public int[] Histogramme(string couleur)
+        {
+            int[] histo = new int[256];
+            for (int i = 0; i < this.l; i++)
+            {
+                for (int j = 0; j < this.h; j++)
+                {
+                    switch (couleur)
+                    {
+                        case "bleu":
+                            histo[this.pixeltab[i, j].Bleu] += 1;
+                            break;
+                        case "rouge":
+                            histo[this.pixeltab[i, j].Rouge] += 1;
+                            break;
+                        case "vert":
+                            histo[this.pixeltab[i, j].Vert] += 1;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            return histo;
+        }
+
+        public void AfficherHisto(int[] histog,string couleur)
+        {
+            
+            int[] hGrey = histog;
+
+            int max = histog[0];
+            for (int i = 1; i < histog.Length; i++)
+            {
+                if (histog[i] > max)
+                { 
+                    max = histog[i]; 
+                }
+            }
+
+            MyPixel[,] histotab = new MyPixel[max, 5 * 256];
+            
+            for (int i = 0; i < histotab.GetLength(0); i++)
+            {
+                for (int j = 0; j < histotab.GetLength(1); j++)
+                {
+                    histotab[i, j] = new MyPixel(255, 255, 255);
+                }
+            }
+            MyPixel couleurpixel = new MyPixel(0, 0, 0);
+            switch (couleur)
+            {
+                case "rouge":
+                    couleurpixel = new MyPixel(255, 0, 0);
+                    break;
+                case "vert":
+                    couleurpixel = new MyPixel(0, 255, 0);
+                    break;
+                case "bleu":
+                    couleurpixel = new MyPixel(0, 0, 255);
+                    break;
+                default:
+                    break;
+            }
+            for (int i = 0; i <= 255; i++)
+            {
+                int hauteur = histog[i];
+                for (int j = 0; j < hauteur; j++)
+                {
+                    histotab[j, 5 * i] = couleurpixel;
+                    histotab[j, 5 * i + 1] = couleurpixel;
+                    histotab[j, 5 * i + 2] = couleurpixel;
+                    histotab[j, 5 * i + 3] = couleurpixel;
+                    histotab[j, 5 * i + 4] = couleurpixel;
+                }
+            }
+
+            this.pixeltab = histotab;
+        
+        }
